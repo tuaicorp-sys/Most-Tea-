@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cinzel", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  
+  --color-gold-50: #fbf7e6;
+  --color-gold-100: #f4e8bd;
+  --color-gold-200: #ebd38d;
+  --color-gold-300: #dfb75c;
+  --color-gold-400: #d49a37;
+  --color-gold-500: #c48227;
+  --color-gold-600: #a7651e;
+  --color-gold-700: #844a19;
+  --color-gold-800: #623414;
+  --color-gold-900: #431f0e;
+  
+  --color-forest-50: #f1f7f3;
+  --color-forest-100: #deeef1;
+  --color-forest-200: #bcdbc4;
+  --color-forest-300: #90be9d;
+  --color-forest-400: #619a71;
+  --color-forest-500: #407d52;
+  --color-forest-600: #2f633e;
+  --color-forest-700: #254f32;
+  --color-forest-800: #1a3924;
+  --color-forest-900: #0a190f;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #06120b;
+}
+::-webkit-scrollbar-thumb {
+  background: #c48227;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #dfb75c;
+}
+
+/* Base resets & utility keyframe animations */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.gold-shimmer {
+  background: linear-gradient(
+    90deg,
+    #844a19 0%,
+    #dfb75c 25%,
+    #fbf7e6 50%,
+    #dfb75c 75%,
+    #844a19 100%
+  );
+  background-size: 200% auto;
+  animation: shimmer 6s infinite linear;
+}
+
+.gold-text-shimmer {
+  background: linear-gradient(
+    135deg,
+    #a7651e 0%,
+    #fbf7e6 30%,
+    #dfb75c 50%,
+    #fbf7e6 70%,
+    #a7651e 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% auto;
+  animation: shimmer 5s infinite linear;
+}
+
+/* Custom decorative patterns */
+.malay-motif-bg {
+  background-image: 
+    radial-gradient(circle at 100% 150%, transparent 24%, #c48227 24%, #c48227 28%, transparent 28%, transparent),
+    radial-gradient(circle at 0% 150%, transparent 24%, #c48227 24%, #c48227 28%, transparent 28%, transparent),
+    linear-gradient(45deg, transparent 46%, #c48227 46%, #c48227 54%, transparent 54%),
+    linear-gradient(-45deg, transparent 46%, #c48227 46%, #c48227 54%, transparent 54%);
+  background-size: 40px 40px;
+  background-color: #0a190f;
+  opacity: 0.04;
+}
+
+/* Flow steam animation for the tea cup icon */
+@keyframes float-steam {
+  0% { transform: translateY(0px) scaleX(1); opacity: 0.3; }
+  50% { transform: translateY(-4px) scaleX(1.2); opacity: 0.8; }
+  100% { transform: translateY(-8px) scaleX(1); opacity: 0; }
+}
+
+.steam-line {
+  animation: float-steam 2.5s infinite ease-in-out;
+}
+

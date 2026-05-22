@@ -1,0 +1,6 @@
+{
+  "name": "The Most Tea",
+  "description": "Teh Tarik Premium Dalam Balang - Sedia Untuk Majlis & Acara Anda! Tempahan dan penghantaran mudah di sekitar Kuala Lumpur & Selangor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
