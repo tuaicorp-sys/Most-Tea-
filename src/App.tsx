@@ -115,9 +115,13 @@ export default function App() {
   const grandTotal = subtotalWater + deliveryCharge;
   const totalLitres = (qty12L * 12) + (qty8L * 8);
   
-  // Approx cups served (approx 240ml per cup, with some foam room)
-  // 12L: ~50 cups, 8L: ~33 cups
-  const approxCups = totalLitres > 0 ? Math.floor(totalLitres / 0.24) : 0;
+  // Approx cups served (Each Litre translates to 10 cups of 100ml)
+  const approxCups = totalLitres * 10;
+  
+  // Free cups and pax suitability details based on user's new instructions (8L = 50 cups/40-50 pax, 12L = 100 cups/80-90 pax)
+  const totalFreeCups = (qty12L * 100) + (qty8L * 50);
+  const minPax = (qty12L * 80) + (qty8L * 40);
+  const maxPax = (qty12L * 90) + (qty8L * 50);
 
   // Dispense cup animation trigger
   const handleDispense = () => {
@@ -144,8 +148,8 @@ export default function App() {
     }) : "*(Belum diisi)*";
     
     const itemStrings: string[] = [];
-    if (qty12L > 0) itemStrings.push(`🔹 ${qty12L} x Balang *Teh Tarik 12 Liter* (RM ${qty12L * price12L})`);
-    if (qty8L > 0) itemStrings.push(`🔹 ${qty8L} x Balang *Teh Tarik 8 Liter* (RM ${qty8L * price8L})`);
+    if (qty12L > 0) itemStrings.push(`🔹 ${qty12L} x Balang *Teh Tarik 12 Liter* (RM ${qty12L * price12L}) [Free 100pcs cawan 100ml, sesuai untuk 80-90 pax]`);
+    if (qty8L > 0) itemStrings.push(`🔹 ${qty8L} x Balang *Teh Tarik 8 Liter* (RM ${qty8L * price8L}) [Free 50pcs cawan 100ml, sesuai untuk 40-50 pax]`);
 
     const formattedMessage = `Assalamualaikum / Salam Sejahtera *The Most Tea*! ☕️🍯
 
@@ -194,7 +198,7 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
     },
     {
       q: "Berapakah kapasiti cawan untuk balang 12L & 8L?",
-      a: "Secara purata, Balang 12 Liter mendapat anggaran 45-50 cawan standard (~240ml). Manakala Balang 8 Liter mendapat sekitar 30-35 cawan. Sangat menjimatkan dan mencukupi!"
+      a: "Setiap tempahan didatangkan dengan cawan percuma bersaiz 100ml. Balang 12 Liter disertakan secara Percuma 100 pcs cawan (sesuai untuk majlis 80-90 orang). Manakala Balang 8 Liter disertakan secara Percuma 50 pcs cawan (sesuai untuk majlis 40-50 orang). Sangat menjimatkan dan mencukupi!"
     },
     {
       q: "Adakah air ini kekal panas sepanjang majlis?",
@@ -385,10 +389,10 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
                     </div>
 
                     {/* Serving indicators */}
-                    <div className="z-10 flex items-center justify-center space-x-1 mb-2 bg-[#06120b]/60 py-0.5 px-2 rounded-full self-center border border-gold-950">
+                    <div className="z-10 flex items-center justify-center space-x-1 mb-2 bg-[#06120b]/60 py-1 px-2.5 rounded-full self-center border border-gold-950">
                       <Coffee className="w-2.5 h-2.5 text-gold-400" />
                       <span className="font-sans text-[8px] font-bold text-stone-200">
-                        {selectedDispenserSize === "12L" ? "~50 CUPS" : "~33 CUPS"}
+                        {selectedDispenserSize === "12L" ? "Free 100 Cawan (80-90 pax)" : "Free 50 Cawan (40-50 pax)"}
                       </span>
                     </div>
 
@@ -523,10 +527,16 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
               <div className="mb-4">
                 <p className="font-serif text-sm text-stone-400 tracking-wider">TEH TARIK PREMIUM</p>
                 <h3 className="font-serif text-2xl font-extrabold text-gold-400 mt-1 uppercase">12 LITER</h3>
-                <p className="font-mono text-xs text-stone-300 mt-1 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-gold-500" />
-                  Mengeluarkan ~45-50 Cawan Tamu
-                </p>
+                <div className="font-mono text-xs text-stone-300 mt-1 space-y-1">
+                  <p className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Free 100 pcs cawan 100ml</span>
+                  </p>
+                  <p className="flex items-center gap-1.5 text-gold-300">
+                    <ShieldCheck className="w-3.5 h-3.5 text-gold-500" />
+                    <span>Sesuai untuk majlis 80-90 orang</span>
+                  </p>
+                </div>
               </div>
 
               <div className="h-[1px] bg-gradient-to-r from-gold-950 via-gold-500/30 to-gold-950 my-4"></div>
@@ -580,10 +590,16 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
               <div className="mb-4">
                 <p className="font-serif text-sm text-stone-400 tracking-wider">TEH TARIK PREMIUM</p>
                 <h3 className="font-serif text-2xl font-extrabold text-[#dfb75c] mt-1 uppercase">8 LITER</h3>
-                <p className="font-mono text-xs text-stone-300 mt-1 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-gold-500" />
-                  Mengeluarkan ~30-33 Cawan Tamu
-                </p>
+                <div className="font-mono text-xs text-stone-300 mt-1 space-y-1">
+                  <p className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Free 50 pcs cawan 100ml</span>
+                  </p>
+                  <p className="flex items-center gap-1.5 text-gold-300">
+                    <ShieldCheck className="w-3.5 h-3.5 text-gold-500" />
+                    <span>Sesuai untuk majlis 40-50 orang</span>
+                  </p>
+                </div>
               </div>
 
               <div className="h-[1px] bg-gradient-to-r from-gold-950 via-gold-500/30 to-gold-950 my-4"></div>
@@ -850,9 +866,17 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
                   </div>
 
                   {/* Total Servings metric readout */}
-                  <div className="flex justify-between text-[10px] text-emerald-400 italic py-0.5 font-sans">
-                    <span>Sedia Hidang Kapasiti Teh:</span>
-                    <span>{totalLitres} Liter (~{approxCups} Cawan Tamu)</span>
+                  <div className="flex flex-col text-[10px] text-emerald-400 italic py-1 font-sans border-b border-stone-800 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Sedia Hidang Kapasiti Teh:</span>
+                      <span>{totalLitres} Liter (~{approxCups} Cawan 100ml)</span>
+                    </div>
+                    {totalFreeCups > 0 && (
+                      <div className="flex justify-between text-gold-300 font-semibold not-italic">
+                        <span>Percuma Cawan & Rekomendasi:</span>
+                        <span>{totalFreeCups} pcs Cawan (Sesuai untuk {minPax}-{maxPax} Pax)</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* GRAND TOTAL */}
