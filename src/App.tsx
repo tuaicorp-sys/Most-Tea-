@@ -268,32 +268,33 @@ export default function App() {
     }) : "*(Belum diisi)*";
     
     const itemStrings: string[] = [];
-    if (qty12L > 0) itemStrings.push(`🔹 ${qty12L} x Balang *Teh Tarik 12 Liter* (RM ${qty12L * price12L}) [Free 100pcs cawan 100ml, sesuai untuk 80-90 pax]`);
-    if (qty8L > 0) itemStrings.push(`🔹 ${qty8L} x Balang *Teh Tarik 8 Liter* (RM ${qty8L * price8L}) [Free 50pcs cawan 100ml, sesuai untuk 40-50 pax]`);
+    if (qty12L > 0) itemStrings.push(`🍯 ${qty12L} x Balang *Teh Tarik 12 Liter* (RM ${qty12L * price12L})`);
+    if (qty8L > 0) itemStrings.push(`🍯 ${qty8L} x Balang *Teh Tarik 8 Liter* (RM ${qty8L * price8L})`);
 
-    const formattedMessage = `Assalamualaikum / Salam Sejahtera *The Most Tea*! ☕️🍯
+    const formattedMessage = `Assalamualaikum / Salam Sejahtera *The Most Tea*! 🍵
 
 Saya berminat untuk membuat tempahan *Teh Tarik Premium dalam Balang*. 
 
 Berikut adalah butiran majlis dan tempahan saya:
 
-👤 *Butiran Pelanggan:*
+📌 *Butiran Pelanggan:*
 • *Nama:* ${userName || "*(Sila isi nama saya)*"}
 • *Tarikh Majlis:* ${formattedDate}
 • *Masa Majlis:* ${userTime || "*(Sila isi masa)*"}
 • *Kaedah:* ${deliveryType === "delivery" ? "Penghantaran (Delivery)" : "Ambil Sendiri (Self-Pickup)"}
-${deliveryType === "delivery" ? `• *Alamat:* ${userAddress || "*(Sila isi alamat lengkap)*"}` : `• *Lokasi Ambil:* Sg Penchala`}
+• *Alamat:* ${deliveryType === "delivery" ? (userAddress || "*(Sila isi alamat lengkap)*") : "Sg Penchala (Self-Pickup)"}
 
 📦 *Pilihan Air & Balang:*
 ${itemStrings.join("\n") || "⚠️ *(Belum memilih saiz balang)*"}
 
-🧮 *Anggaran Sebut Harga:*
+📊 *Anggaran Sebut Harga:*
 • *Harga Air:* RM ${subtotalWater.toFixed(2)}
-${deliveryType === "delivery" ? `• *Jarak:* ${selectedDistance} KM dari Sg Penchala\n• *Kos Delivery:* RM ${deliveryCharge.toFixed(2)} (RM1/KM)` : `• *Kos Delivery:* RM 0.00 (Self-Pickup)`}
-• 💵 *Jumlah Keseluruhan: RM ${grandTotal.toFixed(2)}*
+• *Jarak:* ${deliveryType === "delivery" ? selectedDistance : 0} KM dari Sg Penchala
+• *Kos Delivery:* RM ${deliveryCharge.toFixed(2)}
+• 💰 *Jumlah Keseluruhan: RM ${grandTotal.toFixed(2)}*
 
-💭 *Nota Tambahan/Permintaan khas:*
-_"${userNotes || "Tiada nota tambahan"}"_
+📝 *Nota Tambahan/Permintaan khas:*
+_" ${userNotes.trim() || "Tiada"} "_
 
 Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima kasih banyak! 🙏✨`;
 
