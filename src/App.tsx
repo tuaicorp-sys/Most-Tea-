@@ -420,7 +420,7 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
             {/* Top gold line flare */}
             <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-gold-400 to-transparent"></div>
 
-            <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6 mb-6">
+            <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-4 mb-4">
               <div>
                 <h3 className="font-serif text-2xl font-bold text-gold-300 flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-gold-400 animate-pulse" />
@@ -457,16 +457,16 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
             </div>
 
             {/* SIMULATOR LAYOUT */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center bg-[#07160d]/60 border border-gold-900/40 p-6 rounded-xl">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 md:gap-8 items-center bg-[#07160d]/60 border border-gold-900/40 p-4 sm:p-5 md:p-6 rounded-xl">
               
               {/* VIRTUAL DISPENSER SVG INTERACTIVE COMPONENT (4 cols md) */}
-              <div className="md:col-span-5 flex flex-col items-center justify-center relative min-h-[300px]">
+              <div className="md:col-span-5 flex flex-col items-center justify-center relative min-h-[250px] md:min-h-[290px]">
                 
                 {/* Visual heat waves radiating behind the jar to show warmth */}
-                <div className="absolute top-[10%] w-32 h-44 bg-gold-400/5 rounded-full filter blur-xl animate-pulse"></div>
+                <div className="absolute top-[10%] w-36 h-48 sm:w-44 sm:h-56 bg-gold-400/5 rounded-full filter blur-xl animate-pulse"></div>
 
                 {/* THE INSULATED JAR */}
-                <div className="w-36 h-56 relative flex flex-col items-center justify-end">
+                <div className="w-36 h-56 relative flex flex-col items-center justify-end transform scale-[1.18] sm:scale-[1.3] md:scale-[1.15] lg:scale-[1.25] xl:scale-[1.38] origin-bottom transition-all duration-300 my-5 sm:my-8 md:my-5">
                   
                   {/* Handle top black bar */}
                   <div className="w-24 h-4 bg-stone-800 rounded-t-lg border-b border-stone-700 shadow-md"></div>
