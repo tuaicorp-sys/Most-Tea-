@@ -78,6 +78,126 @@ export default function App() {
   const [userAddress, setUserAddress] = useState<string>("");
   const [userNotes, setUserNotes] = useState<string>("");
 
+  // OSM Route Calculation States
+  const [isCalculating, setIsCalculating] = useState<boolean>(false);
+  const [calcError, setCalcError] = useState<string>("");
+  const [calcSuccessMsg, setCalcSuccessMsg] = useState<string>("");
+  const [lastCalculatedAddress, setLastCalculatedAddress] = useState<string>("");
+
+  // Auto-calculate distance based on address with a debounce of 1500ms
+  useEffect(() => {
+    if (deliveryType !== "delivery") return;
+    const trimmedAddress = userAddress.trim();
+    if (!trimmedAddress || trimmedAddress.length < 5) {
+      return;
+    }
+    // Avoid redundant calculation if address hasn't changed or is currently calculating
+    if (trimmedAddress.toLowerCase() === lastCalculatedAddress.toLowerCase()) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      handleCalculateOSM(trimmedAddress);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [userAddress, deliveryType, lastCalculatedAddress]);
+
+  const fallbackGeocodeAndRoute = async (searchAddress: string) => {
+    const START_LAT = 3.1610;
+    const START_LON = 101.6214;
+
+    let query = searchAddress;
+    if (!query.toLowerCase().includes("malaysia")) {
+      query += ", Malaysia";
+    }
+
+    const geocodeUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&addressdetails=1`;
+    const geoResponse = await fetch(geocodeUrl, {
+      headers: {
+        "User-Agent": "TheMostTea-Delivery-Calculator/1.0 (tuai.corp@gmail.com)"
+      }
+    });
+    if (!geoResponse.ok) throw new Error("Gagal menyambung ke OSM Nominatim.");
+
+    const geoData = await geoResponse.json();
+    if (!geoData || geoData.length === 0) {
+      throw new Error("Alamat tidak ditemui. Sila taip alamat yang lebih lengkap.");
+    }
+
+    const matched = geoData[0];
+    const destLat = parseFloat(matched.lat);
+    const destLon = parseFloat(matched.lon);
+    
+    const routingUrl = `https://router.project-osrm.org/route/v1/driving/${START_LON},${START_LAT};${destLon},${destLat}?overview=false`;
+    const routeResponse = await fetch(routingUrl);
+    if (!routeResponse.ok) throw new Error("Gagal menyambung ke OSRM Router.");
+
+    const routeData = await routeResponse.json();
+    if (routeData.code !== "Ok" || !routeData.routes || routeData.routes.length === 0) {
+      throw new Error("Laluan pemanduan gagal dikesan dari Sg Penchala ke lokasi ini.");
+    }
+
+    const distMeter = routeData.routes[0].distance;
+    return {
+      distanceKm: Math.ceil(distMeter / 1000),
+      rawDistanceMeter: distMeter,
+      matchedAddress: matched.display_name
+    };
+  };
+
+  const handleCalculateOSM = async (addressOverride?: string) => {
+    const targetAddress = addressOverride !== undefined ? addressOverride : userAddress;
+    if (!targetAddress || targetAddress.trim() === "") {
+      setCalcError("Sila masukkan alamat lengkap terlebih dahulu.");
+      return;
+    }
+    
+    setIsCalculating(true);
+    setCalcError("");
+    setCalcSuccessMsg("");
+    setLastCalculatedAddress(targetAddress.trim());
+    
+    try {
+      const response = await fetch("/api/calculate-distance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ address: targetAddress }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setSelectedDistance(data.distanceKm);
+        setActivePreset("Custom (Dikirakan)");
+        setIsCustomDistance(true);
+        setCalcSuccessMsg(`Jarak pandu dikesan secara automatik: ${data.distanceKm} KM. Menerusi: ${data.matchedAddress}`);
+      } else {
+        // Fallback geocoding client-side if API route returned an error
+        console.warn("Backend error, falling back to client-side geocoding...", data.error);
+        const fb = await fallbackGeocodeAndRoute(targetAddress);
+        setSelectedDistance(fb.distanceKm);
+        setActivePreset("Custom (Dikirakan)");
+        setIsCustomDistance(true);
+        setCalcSuccessMsg(`Jarak pandu dikesan secara automatik (Mod Alt): ${fb.distanceKm} KM. Menerusi: ${fb.matchedAddress}`);
+      }
+    } catch (err: any) {
+      console.warn("Network error, falling back to client-side geocoding...", err);
+      try {
+        const fb = await fallbackGeocodeAndRoute(targetAddress);
+        setSelectedDistance(fb.distanceKm);
+        setActivePreset("Custom (Dikirakan)");
+        setIsCustomDistance(true);
+        setCalcSuccessMsg(`Jarak pandu dikesan secara automatik (Mod Alt): ${fb.distanceKm} KM. Menerusi: ${fb.matchedAddress}`);
+      } catch (fallbackErr: any) {
+        setCalcError(fallbackErr.message || "Sistem gagal menyambung ke talian geolokasi. Sila masukkan nama jalan / kawasan dengan lebih spesifik.");
+      }
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
   // Pouring Simulator States
   const [isPouring, setIsPouring] = useState<boolean>(false);
   const [pouredCount, setPouredCount] = useState<number>(0);
@@ -701,39 +821,62 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
                 <div className="space-y-3.5 bg-[#06120b]/55 p-4 rounded-xl border border-gold-950">
                   <div className="flex justify-between items-center">
                     <label className="text-xxs uppercase tracking-wider font-bold text-gold-300 block font-mono">
-                      2. Kos Penghantaran (RM1 per KM)
+                      2. Kos Penghantaran (1KM = RM1.00)
                     </label>
                     <span className="text-xxs text-emerald-400 font-mono bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-900/50">
-                      Bermula Sg Penchala
+                      Mula: Sg Penchala
                     </span>
                   </div>
 
-                  {/* Distance Presets Grid scroll */}
-                  <div>
-                    <label className="text-[10px] text-stone-400 block mb-1.5">Klik preset lokasi popular:</label>
-                    <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-1">
-                      {locationsPreset.map((loc, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => handlePresetSelect(loc)}
-                          className={`text-[10px] px-2.5 py-1 rounded-md border font-medium transition duration-150 cursor-pointer ${
-                            activePreset === loc.name
-                              ? "bg-gold-400 border-gold-400 text-forest-900 font-bold"
-                              : "bg-[#0c2317]/80 border-gold-950 text-stone-300 hover:border-gold-600/40"
-                          }`}
-                        >
-                          {loc.name} ({loc.distance}km)
-                        </button>
-                      ))}
+                  {/* Real-time Address Master Controller Monitor */}
+                  <div className="bg-[#051108]/90 border border-emerald-900/45 p-3 rounded-xl text-xs leading-relaxed font-sans space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <p className="font-bold text-[9px] uppercase tracking-wider text-gold-400 font-mono">
+                        PENGIRA ALAMAT AUTOMATIK (MASTER CONTROLLER):
+                      </p>
                     </div>
+                    
+                    <p className="text-[10px] text-stone-300">
+                      Sila taip alamat lengkap anda di bawah. Sistem akan memproses dan melaraskan slider jarak serta harga pengantaran secara real-time!
+                    </p>
+
+                    {userAddress.trim().length === 0 ? (
+                      <p className="text-[10px] text-stone-500 italic flex items-center gap-1">
+                        <span>👉</span> <span>Sila nyatakan alamat di bawah untuk mengaktifkan pengesan jarak automatik.</span>
+                      </p>
+                    ) : userAddress.trim().length < 5 ? (
+                      <p className="text-[10px] text-amber-400 flex items-center gap-1 animate-pulse">
+                        <span>✍️</span> <span>Teruskan menaip alamat lengkap...</span>
+                      </p>
+                    ) : isCalculating ? (
+                      <p className="text-[10px] text-gold-300 font-semibold flex items-center gap-1.5">
+                        <svg className="animate-spin h-3.5 w-3.5 text-gold-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Menghubungi OSM & SimpleRouting...</span>
+                      </p>
+                    ) : userAddress.trim().toLowerCase() !== lastCalculatedAddress.toLowerCase() ? (
+                      <p className="text-[10px] text-amber-500/95 italic animate-pulse flex items-center gap-1">
+                        <span>⏳</span> <span>Menanti anda berhenti menaip untuk mengemas kini jarak...</span>
+                      </p>
+                    ) : (
+                      <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 bg-emerald-950/20 px-2 py-1 rounded border border-emerald-900/30">
+                        <span>✅ Jarak berjaya dikesan secara automatik:</span>
+                        <span className="text-emerald-200 underline font-mono text-xs">{selectedDistance} KM</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Manual Slider adjustment */}
-                  <div className="pt-2">
+                  {/* Manual Slider adjustment as visual readout/override */}
+                  <div className="pt-1.5 pb-1">
                     <div className="flex justify-between text-xs font-mono mb-1">
-                      <span className="text-stone-400">Jarak Penghantaran:</span>
-                      <span className="text-gold-200 font-extrabold">{selectedDistance} KM</span>
+                      <span className="text-stone-400">Jarak Paparan / Larasan:</span>
+                      <span className="text-gold-200 font-extrabold text-sm">{selectedDistance} KM</span>
                     </div>
 
                     <input 
@@ -742,13 +885,34 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
                       max="50" 
                       value={selectedDistance}
                       onChange={(e) => handleDistanceSliderChange(parseInt(e.target.value))}
-                      className="w-full accent-gold-400 cursor-pointer h-1.5 bg-stone-800 rounded-lg"
+                      className="w-full accent-gold-400 cursor-pointer h-1.5 bg-stone-800 rounded-lg transition-all"
                     />
                     
-                    <div className="flex justify-between text-[9px] text-[#844a19] font-mono mt-1 font-bold">
+                    <div className="flex justify-between text-[9px] text-stone-500 font-mono mt-1 font-bold">
                       <span>Kedai (0km)</span>
                       <span>25km</span>
                       <span>Kawasan Jauh (50km)</span>
+                    </div>
+                  </div>
+
+                  {/* Distance Presets Grid scroll as fallback check */}
+                  <div className="pt-1 border-t border-gold-950/40">
+                    <label className="text-[9px] text-stone-500 block mb-1">Semak preset rujukan kawasan popular:</label>
+                    <div className="flex flex-wrap gap-1 max-h-[100px] overflow-y-auto pr-1">
+                      {locationsPreset.map((loc, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => handlePresetSelect(loc)}
+                          className={`text-[9px] px-2 py-0.5 rounded border transition duration-150 cursor-pointer ${
+                            activePreset === loc.name
+                              ? "bg-gold-500 border-gold-500 text-forest-900 font-bold"
+                              : "bg-[#07150e] border-stone-900 text-stone-400 hover:text-stone-200"
+                          }`}
+                        >
+                          {loc.name} ({loc.distance}km)
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -806,18 +970,59 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
 
                 {/* Delivery Address (Shown conditionally for Delivery) */}
                 {deliveryType === "delivery" && (
-                  <div className="relative">
-                    <div className="absolute top-3 left-0 pl-3 pointer-events-none text-gold-500/60">
-                      <MapPin className="h-4 w-4" />
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <div className="absolute top-3 left-0 pl-3 pointer-events-none text-gold-500/60">
+                        <MapPin className="h-4 w-4" />
+                      </div>
+                      <textarea
+                        required
+                        rows={2}
+                        placeholder="Alamat Lengkap Penghantaran / Koordinat Waze"
+                        value={userAddress}
+                        onChange={(e) => {
+                          setUserAddress(e.target.value);
+                          if (calcSuccessMsg) setCalcSuccessMsg("");
+                          if (calcError) setCalcError("");
+                        }}
+                        className="block w-full pl-9 pr-3 py-2 bg-[#06120b] border border-gold-900 rounded-xl text-xs text-white focus:outline-none focus:border-gold-400 font-sans transition"
+                      />
                     </div>
-                    <textarea
-                      required
-                      rows={2}
-                      placeholder="Alamat Lengkap Penghantaran / Koordinat Waze"
-                      value={userAddress}
-                      onChange={(e) => setUserAddress(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 bg-[#06120b] border border-gold-900 rounded-xl text-xs text-white focus:outline-none focus:border-gold-400 font-sans transition"
-                    />
+
+                    {/* OSM calculation button */}
+                    <button
+                      type="button"
+                      onClick={handleCalculateOSM}
+                      disabled={isCalculating}
+                      className="w-full py-2 px-3 bg-gradient-to-r from-gold-600 to-gold-400 hover:from-gold-500 hover:to-gold-300 disabled:from-stone-700 disabled:to-stone-800 disabled:text-stone-500 text-forest-900 text-[10px] font-bold uppercase tracking-wider rounded-lg transition duration-200 cursor-pointer flex items-center justify-center gap-1.5 focus:outline-none focus:ring-1 focus:ring-gold-400"
+                    >
+                      {isCalculating ? (
+                        <>
+                          <svg className="animate-spin h-3.5 w-3.5 text-forest-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Sedang Mengira Jarak...</span>
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>Kira Jarak & Kos Penghantaran Pantas</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Feedback Messages */}
+                    {calcSuccessMsg && (
+                      <p className="text-[10px] text-emerald-400 leading-snug bg-emerald-950/40 p-2 rounded-lg border border-emerald-950/30">
+                        {calcSuccessMsg}
+                      </p>
+                    )}
+                    {calcError && (
+                      <p className="text-[10px] text-rose-400 leading-snug bg-rose-950/40 p-2 rounded-lg border border-rose-950/30">
+                        ⚠️ {calcError}
+                      </p>
+                    )}
                   </div>
                 )}
 
