@@ -86,12 +86,30 @@
         "status",
         "createdAt"
       ]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Represents a specific date block and slots capacity status",
+      "type": "object",
+      "properties": {
+        "isFull": {
+          "type": "boolean",
+          "description": "True if the slot limits are strictly reached for this date"
+        }
+      },
+      "required": [
+        "isFull"
+      ]
     }
   },
   "firestore": {
     "/orders/{orderId}": {
       "schema": "Order",
       "description": "Active reservation orders collections"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Calendar dates capacity / fully-booked slots registry"
     }
   }
 }

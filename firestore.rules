@@ -55,6 +55,21 @@ service cloud.firestore {
       data.userNotes is string && data.userNotes.size() <= 1000;
     }
 
+    // Booking entity validation blueprint
+    function isValidBooking(data) {
+      return data.keys().hasAll(['isFull']) &&
+             data.keys().size() == 1 &&
+             data.isFull is bool;
+    }
+
+    // Bookings Collection Rules
+    match /bookings/{bookingId} {
+      allow get: if isValidId(bookingId); // Public check for slot availability
+      allow list: if isAdmin(); // Admin can look up blocks
+      allow create, update: if isValidId(bookingId) && isAdmin() && isValidBooking(incoming());
+      allow delete: if isAdmin();
+    }
+
     // Orders Collection Rules
     match /orders/{orderId} {
       allow get: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);

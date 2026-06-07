@@ -94,6 +94,63 @@ export default function App() {
   const [firebaseErrorMsg, setFirebaseErrorMsg] = useState<string>("");
   const [savedOrderId, setSavedOrderId] = useState<string>("");
 
+  // Target calendar date checking and warning states
+  const [isCheckingDate, setIsCheckingDate] = useState<boolean>(false);
+  const [dateAlertMsg, setDateAlertMsg] = useState<string>("");
+
+  // Check date slot availability in real-time
+  useEffect(() => {
+    if (!userDate) {
+      setDateAlertMsg("");
+      return;
+    }
+
+    async function checkDateAvailability() {
+      setIsCheckingDate(true);
+      setDateAlertMsg("");
+      try {
+        const parts = userDate.split("-");
+        if (parts.length !== 3) return;
+        
+        const year = parts[0];
+        const month = parts[1];
+        const day = parts[2];
+        if (!year || !month || !day) return;
+
+        const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        const monthIdx = parseInt(month, 10) - 1;
+        if (monthIdx < 0 || monthIdx > 11) return;
+
+        const monthName = months[monthIdx];
+        const dayInt = parseInt(day, 10);
+        const formattedDate = `${dayInt} ${monthName} ${year}`; // e.g. "10 JUN 2026"
+
+        const bookingDocRef = doc(db, "bookings", formattedDate);
+        const docSnap = await getDocFromServer(bookingDocRef);
+
+        if (docSnap.exists()) {
+          const bookingData = docSnap.data();
+          if (bookingData && bookingData.isFull === true) {
+            const warningText = `⚠️ Maaf! Slot tempahan Teh Tarik Balang untuk tarikh ${formattedDate} sudah PENUH sepenuhnya. Sila pilih tarikh lain ya! 🙏✨`;
+            setDateAlertMsg(warningText);
+            
+            // Show standard fallback alert
+            alert(warningText);
+
+            // Instantly reset the date input selection to blank so they cannot submit
+            setUserDate("");
+          }
+        }
+      } catch (err) {
+        console.error("Gagal memeriksa status slot tempahan daripada Firestore:", err);
+      } finally {
+        setIsCheckingDate(false);
+      }
+    }
+
+    checkDateAvailability();
+  }, [userDate]);
+
   // Run initial SDK connection check based on "firebase-integration" skill
   useEffect(() => {
     async function testConnection() {
@@ -1030,7 +1087,9 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
                       required
                       value={userDate}
                       onChange={(e) => setUserDate(e.target.value)}
-                      className="block w-full pl-9 pr-2 py-2.5 bg-[#06120b] border border-gold-900 rounded-xl text-xs text-white focus:outline-none focus:border-gold-400 uppercase font-sans transition"
+                      className={`block w-full pl-9 pr-2 py-2.5 bg-[#06120b] border ${
+                        dateAlertMsg ? "border-rose-500" : "border-gold-900 focus:border-gold-400"
+                      } rounded-xl text-xs text-white focus:outline-none uppercase font-sans transition`}
                     />
                   </div>
 
@@ -1047,6 +1106,19 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
                     />
                   </div>
                 </div>
+
+                {isCheckingDate && (
+                  <div className="text-[10px] text-gold-400/90 font-mono flex items-center gap-1.5 animate-pulse pl-1">
+                    <span className="w-1.5 h-1.5 bg-gold-400 rounded-full animate-ping"></span>
+                    <span>Menyemak ketersediaan slot tarikh...</span>
+                  </div>
+                )}
+
+                {dateAlertMsg && (
+                  <div className="text-[11px] text-rose-300 font-sans leading-relaxed p-2.5 bg-rose-950/40 border border-rose-500/30 rounded-xl">
+                    {dateAlertMsg}
+                  </div>
+                )}
 
                 {/* Delivery Address (Shown conditionally for Delivery) */}
                 {deliveryType === "delivery" && (
