@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+             request.auth.token.email == 'tuai.corp@gmail.com' && 
+             request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Order entity validation blueprint
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+        'userName', 'userDate', 'userTime', 'deliveryType', 'userAddress', 
+        'selectedDistance', 'deliveryCharge', 'qty12L', 'qty8L', 
+        'subtotalWater', 'grandTotal', 'status', 'createdAt', 'userNotes'
+      ]) && 
+      data.keys().size() <= 16 && // Allows optional fields like userId/updatedAt
+      
+      // Type and size bounds checks
+      data.userName is string && data.userName.size() >= 2 && data.userName.size() <= 100 &&
+      data.userDate is string && data.userDate.size() >= 8 && data.userDate.size() <= 20 &&
+      data.userTime is string && data.userTime.size() >= 3 && data.userTime.size() <= 20 &&
+      data.deliveryType is string && (data.deliveryType == 'delivery' || data.deliveryType == 'pickup') &&
+      data.userAddress is string && data.userAddress.size() <= 500 &&
+      data.selectedDistance is number && data.selectedDistance >= 0 && data.selectedDistance <= 100 &&
+      data.deliveryCharge is number && data.deliveryCharge >= 0 &&
+      data.qty12L is number && data.qty12L >= 0 && data.qty12L <= 100 &&
+      data.qty8L is number && data.qty8L >= 0 && data.qty8L <= 100 &&
+      data.subtotalWater is number && data.subtotalWater >= 0 &&
+      data.grandTotal is number && data.grandTotal >= 0 &&
+      data.status is string && (data.status == 'pending' || data.status == 'confirmed' || data.status == 'completed' || data.status == 'cancelled') &&
+      data.userNotes is string && data.userNotes.size() <= 1000;
+    }
+
+    // Orders Collection Rules
+    match /orders/{orderId} {
+      allow get: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow list: if isAdmin();
+      
+      allow create: if isValidId(orderId) && 
+                      isValidOrder(incoming()) && 
+                      incoming().status == 'pending' &&
+                      incoming().createdAt == request.time &&
+                      (!incoming().keys().contains('userId') || (isSignedIn() && incoming().userId == request.auth.uid));
+
+      allow update: if isValidId(orderId) && 
+                      isValidOrder(incoming()) && 
+                      incoming().updatedAt == request.time &&
+                      (
+                        // Admin can manage order statuses or edit details
+                        isAdmin() ||
+                        // User can cancel their own pending order
+                        (
+                          isSignedIn() && 
+                          existing().userId == request.auth.uid && 
+                          existing().status == 'pending' &&
+                          incoming().status == 'cancelled' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+                        )
+                      );
+
+      allow delete: if isAdmin();
+    }
+  }
+}

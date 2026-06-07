@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { 
+  doc, 
+  setDoc, 
+  serverTimestamp, 
+  getDocFromServer 
+} from "firebase/firestore";
+import { 
+  db, 
+  handleFirestoreError, 
+  OperationType 
+} from "./lib/firebase";
+import { 
   Coffee, 
   MapPin, 
   Calendar, 
@@ -77,6 +88,26 @@ export default function App() {
   const [userTime, setUserTime] = useState<string>("");
   const [userAddress, setUserAddress] = useState<string>("");
   const [userNotes, setUserNotes] = useState<string>("");
+
+  // Firebase integration states
+  const [firebaseStatus, setFirebaseStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [firebaseErrorMsg, setFirebaseErrorMsg] = useState<string>("");
+  const [savedOrderId, setSavedOrderId] = useState<string>("");
+
+  // Run initial SDK connection check based on "firebase-integration" skill
+  useEffect(() => {
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, "test", "connection"));
+        console.log("Firebase Connection Active!");
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("offline")) {
+          console.error("Please check your Firebase configuration or network status.");
+        }
+      }
+    }
+    testConnection();
+  }, []);
 
   // OSM Route Calculation States
   const [isCalculating, setIsCalculating] = useState<boolean>(false);
@@ -259,7 +290,7 @@ export default function App() {
   };
 
   // Compile WhatsApp message
-  const getWhatsAppLink = () => {
+  const getWhatsAppLink = (orderId?: string) => {
     const formattedDate = userDate ? new Date(userDate).toLocaleDateString("ms-MY", {
       weekday: 'long',
       year: 'numeric',
@@ -273,7 +304,7 @@ export default function App() {
 
     const formattedMessage = `Assalamualaikum / Salam Sejahtera *The Most Tea*! 🍵
 
-Saya berminat untuk membuat tempahan *Teh Tarik Premium dalam Balang*. 
+${orderId ? `🆔 *No Rujukan Tempahan:* \`${orderId}\` (Direkod dalam Firebase)\n` : ""}Saya berminat untuk membuat tempahan *Teh Tarik Premium dalam Balang*. 
 
 Berikut adalah butiran majlis dan tempahan saya:
 
@@ -302,13 +333,61 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
     return `https://wa.me/60182667703?text=${encodedText}`;
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setShowOrderFeedback(true);
-    setTimeout(() => {
-      window.open(getWhatsAppLink(), "_blank");
-      setShowOrderFeedback(false);
-    }, 800);
+    setFirebaseStatus("saving");
+    setFirebaseErrorMsg("");
+
+    const orderId = "ORD" + Math.floor(100000 + Math.random() * 900000);
+    setSavedOrderId(orderId);
+
+    try {
+      // 1. Create a document reference in the 'orders' collection
+      const orderRef = doc(db, "orders", orderId);
+      
+      // 2. Build order payload compatible with firestore.rules
+      const orderPayload = {
+        userName: userName.trim() || "Pelanggan Tanpa Nama",
+        userDate: userDate || new Date().toISOString().split("T")[0],
+        userTime: userTime || "12:00",
+        deliveryType: deliveryType,
+        userAddress: deliveryType === "delivery" ? userAddress.trim() : "Sg Penchala (Self-Pickup)",
+        selectedDistance: deliveryType === "delivery" ? selectedDistance : 0,
+        deliveryCharge: deliveryCharge,
+        qty12L: qty12L,
+        qty8L: qty8L,
+        subtotalWater: subtotalWater,
+        grandTotal: grandTotal,
+        userNotes: userNotes.trim() ? userNotes.trim() : "Tiada",
+        status: "pending",
+        createdAt: serverTimestamp()
+      };
+
+      // 3. Write data synchronously to Firestore
+      await setDoc(orderRef, orderPayload);
+      setFirebaseStatus("saved");
+
+      // 4. Open WhatsApp draft on success
+      setTimeout(() => {
+        window.open(getWhatsAppLink(orderId), "_blank");
+        setShowOrderFeedback(false);
+      }, 900);
+
+    } catch (error) {
+      setFirebaseStatus("error");
+      setFirebaseErrorMsg(error instanceof Error ? error.message : String(error));
+      console.error("Gagal mendaftarkan tempahan ke Firebase Firestore:", error);
+      
+      // Open WhatsApp as a fallback even if Firestore write fails (resilient behavior)
+      setTimeout(() => {
+        window.open(getWhatsAppLink(orderId + "-FB-ERR"), "_blank");
+        setShowOrderFeedback(false);
+      }, 1500);
+
+      // Report security/permission details back to console and throw formatted error for system analysis
+      handleFirestoreError(error, OperationType.CREATE, `orders/${orderId}`);
+    }
   };
 
   // FAQ Data list
@@ -1099,6 +1178,32 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
                   ⚠️ Amaran: Sila tambah sekurang-kurangnya 1 Balang (12L atau 8L) pada bahagian menu untuk menghantar tempahan.
                 </div>
               ) : null}
+
+              {/* Firebase sync status indicator */}
+              {firebaseStatus === "saving" && (
+                <div className="p-3 bg-gold-950/40 border border-gold-600/30 text-gold-300 text-xs rounded-xl font-mono text-center flex items-center justify-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-gold-500"></span>
+                  </span>
+                  <span>Menyimpan borang tempahan ke dalam Pangkalan Data Firebase...</span>
+                </div>
+              )}
+              {firebaseStatus === "saved" && (
+                <div className="p-3 bg-emerald-950/50 border border-emerald-500/40 text-emerald-300 text-xs rounded-xl font-mono text-center space-y-1 animate-pulse">
+                  <div className="flex items-center justify-center gap-1.5 font-bold text-emerald-400">
+                    <Check className="w-4 h-4" />
+                    <span>RUJUKAN FIRESTORE ({savedOrderId}) DIREKODKAN</span>
+                  </div>
+                  <p className="text-[11px] text-stone-300 font-sans">Borang tempahan telah selamat disandarkan ke pelayan awan kami.</p>
+                </div>
+              )}
+              {firebaseStatus === "error" && (
+                <div className="p-3 bg-rose-950/50 border border-rose-500/30 text-rose-300 text-xs rounded-xl font-mono text-center space-y-1">
+                  <p className="font-bold text-rose-400">⚠️ Catatan: Disimpan Tempatan sahaja</p>
+                  <p className="text-[11px] text-stone-300 font-sans">Sistem database offline. WhatsApp dibuka sebagai sandaran utama.</p>
+                </div>
+              )}
 
               {/* RESERVATION SUBMIT ACTION */}
               <button

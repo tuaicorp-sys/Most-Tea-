@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Represents a brand booking order from a customer for Teh Tarik Balang",
+      "type": "object",
+      "properties": {
+        "userName": {
+          "type": "string",
+          "description": "The customer's full name"
+        },
+        "userDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The custom date scheduled for the event"
+        },
+        "userTime": {
+          "type": "string",
+          "description": "The custom time scheduled for the event"
+        },
+        "deliveryType": {
+          "type": "string",
+          "enum": ["delivery", "pickup"],
+          "description": "Type of dispatch requested"
+        },
+        "userAddress": {
+          "type": "string",
+          "description": "The complete shipping address provided"
+        },
+        "selectedDistance": {
+          "type": "number",
+          "description": "The resolved driving distance in kilometers"
+        },
+        "deliveryCharge": {
+          "type": "number",
+          "description": "The custom shipping fee calculated"
+        },
+        "qty12L": {
+          "type": "number",
+          "description": "Quantity of the 12 Litre jars of Teh Tarik"
+        },
+        "qty8L": {
+          "type": "number",
+          "description": "Quantity of the 8 Litre jars of Teh Tarik"
+        },
+        "subtotalWater": {
+          "type": "number",
+          "description": "Subtotal cost of the tea jars"
+        },
+        "grandTotal": {
+          "type": "number",
+          "description": "The final aggregate sum total cost of the order"
+        },
+        "userNotes": {
+          "type": "string",
+          "description": "Customer custom notes or comments"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "confirmed", "completed", "cancelled"],
+          "description": "The current workflow status of the order"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the record was written (Server Timestamp)"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the record was last modified (Server Timestamp)"
+        }
+      },
+      "required": [
+        "userName",
+        "userDate",
+        "userTime",
+        "deliveryType",
+        "userAddress",
+        "selectedDistance",
+        "deliveryCharge",
+        "qty12L",
+        "qty8L",
+        "subtotalWater",
+        "grandTotal",
+        "status",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Active reservation orders collections"
+    }
+  }
+}
