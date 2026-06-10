@@ -22,6 +22,16 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function isValidBookingId(id) {
+      return id is string &&
+             id.size() <= 128 &&
+             (
+               id.matches('^[0-9]{1,2} [A-Z]{3} [0-9]{4}$') ||
+               id.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') ||
+               id.matches('^[a-zA-Z0-9_\\-]+$')
+             );
+    }
+
     function incoming() {
       return request.resource.data;
     }
@@ -58,16 +68,34 @@ service cloud.firestore {
     // Booking entity validation blueprint
     function isValidBooking(data) {
       return data.keys().hasAll(['isFull']) &&
-             data.keys().size() == 1 &&
-             data.isFull is bool;
+             data.keys().size() <= 18 &&
+             data.isFull is bool &&
+             (!data.keys().hasAny(['date']) || data.date is string) &&
+             (!data.keys().hasAny(['capacityUnits']) || data.capacityUnits is number) &&
+             (!data.keys().hasAny(['totalFleetLimit']) || data.totalFleetLimit is number) &&
+             (!data.keys().hasAny(['totalRequestsReceived']) || data.totalRequestsReceived is number) &&
+             (!data.keys().hasAny(['confirmedPaidOrders']) || data.confirmedPaidOrders is number) &&
+             (!data.keys().hasAny(['pendingHoldOrders']) || data.pendingHoldOrders is number) &&
+             (!data.keys().hasAny(['confirmedUnits']) || data.confirmedUnits is number) &&
+             (!data.keys().hasAny(['pendingHoldUnits']) || data.pendingHoldUnits is number) &&
+             (!data.keys().hasAny(['usedUnits']) || data.usedUnits is number) &&
+             (!data.keys().hasAny(['balangsLeft']) || data.balangsLeft is number) &&
+             (!data.keys().hasAny(['status']) || data.status is string) &&
+             (!data.keys().hasAny(['managedBy']) || data.managedBy is string);
     }
 
     // Bookings Collection Rules
     match /bookings/{bookingId} {
-      allow get: if isValidId(bookingId); // Public check for slot availability
+      allow get: if isValidBookingId(bookingId); // Public check for slot availability
       allow list: if isAdmin(); // Admin can look up blocks
-      allow create, update: if isValidId(bookingId) && isAdmin() && isValidBooking(incoming());
+      allow create, update: if isValidBookingId(bookingId) && isAdmin() && isValidBooking(incoming());
       allow delete: if isAdmin();
+    }
+
+    // The deployed website probes this document as a lightweight connection check.
+    match /test/{testId} {
+      allow get: if testId == 'connection';
+      allow list, create, update, delete: if isAdmin();
     }
 
     // Orders Collection Rules

@@ -3,7 +3,8 @@ import {
   doc, 
   setDoc, 
   serverTimestamp, 
-  getDocFromServer 
+  getDocFromServer,
+  onSnapshot
 } from "firebase/firestore";
 import { 
   db, 
@@ -37,6 +38,28 @@ import { motion, AnimatePresence } from "motion/react";
 interface PresetLocation {
   name: string;
   distance: number;
+}
+
+interface BookingAvailability {
+  id: string;
+  isFull: boolean;
+  balangsLeft: number | null;
+  usedUnits: number | null;
+  status: string | null;
+}
+
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+function formatBookingDateId(isoDate: string): string | null {
+  const parts = isoDate.split("-");
+  if (parts.length !== 3) return null;
+
+  const year = parts[0];
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const dayInt = parseInt(parts[2], 10);
+  if (!year || monthIdx < 0 || monthIdx > 11 || Number.isNaN(dayInt)) return null;
+
+  return `${dayInt} ${MONTHS[monthIdx]} ${year}`;
 }
 
 // Preset locations centered around Sg Penchala
@@ -97,58 +120,62 @@ export default function App() {
   // Target calendar date checking and warning states
   const [isCheckingDate, setIsCheckingDate] = useState<boolean>(false);
   const [dateAlertMsg, setDateAlertMsg] = useState<string>("");
+  const [bookingAvailability, setBookingAvailability] = useState<BookingAvailability | null>(null);
 
   // Check date slot availability in real-time
   useEffect(() => {
     if (!userDate) {
       setDateAlertMsg("");
+      setBookingAvailability(null);
       return;
     }
 
-    async function checkDateAvailability() {
-      setIsCheckingDate(true);
-      setDateAlertMsg("");
-      try {
-        const parts = userDate.split("-");
-        if (parts.length !== 3) return;
-        
-        const year = parts[0];
-        const month = parts[1];
-        const day = parts[2];
-        if (!year || !month || !day) return;
+    const formattedDate = formatBookingDateId(userDate);
+    if (!formattedDate) return;
 
-        const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-        const monthIdx = parseInt(month, 10) - 1;
-        if (monthIdx < 0 || monthIdx > 11) return;
+    setIsCheckingDate(true);
+    setDateAlertMsg("");
+    const bookingDocRef = doc(db, "bookings", formattedDate);
 
-        const monthName = months[monthIdx];
-        const dayInt = parseInt(day, 10);
-        const formattedDate = `${dayInt} ${monthName} ${year}`; // e.g. "10 JUN 2026"
-
-        const bookingDocRef = doc(db, "bookings", formattedDate);
-        const docSnap = await getDocFromServer(bookingDocRef);
-
-        if (docSnap.exists()) {
-          const bookingData = docSnap.data();
-          if (bookingData && bookingData.isFull === true) {
-            const warningText = `⚠️ Maaf! Slot tempahan Teh Tarik Balang untuk tarikh ${formattedDate} sudah PENUH sepenuhnya. Sila pilih tarikh lain ya! 🙏✨`;
-            setDateAlertMsg(warningText);
-            
-            // Show standard fallback alert
-            alert(warningText);
-
-            // Instantly reset the date input selection to blank so they cannot submit
-            setUserDate("");
-          }
-        }
-      } catch (err) {
-        console.error("Gagal memeriksa status slot tempahan daripada Firestore:", err);
-      } finally {
+    const unsubscribe = onSnapshot(
+      bookingDocRef,
+      (docSnap) => {
         setIsCheckingDate(false);
-      }
-    }
+        if (!docSnap.exists()) {
+          setBookingAvailability({
+            id: formattedDate,
+            isFull: false,
+            balangsLeft: null,
+            usedUnits: null,
+            status: "AVAILABLE",
+          });
+          return;
+        }
 
-    checkDateAvailability();
+        const bookingData = docSnap.data();
+        const availability: BookingAvailability = {
+          id: formattedDate,
+          isFull: bookingData?.isFull === true,
+          balangsLeft: typeof bookingData?.balangsLeft === "number" ? bookingData.balangsLeft : null,
+          usedUnits: typeof bookingData?.usedUnits === "number" ? bookingData.usedUnits : null,
+          status: typeof bookingData?.status === "string" ? bookingData.status : null,
+        };
+
+        setBookingAvailability(availability);
+        if (availability.isFull) {
+          setDateAlertMsg(`⚠️ Maaf! Slot tempahan Teh Tarik Balang untuk tarikh ${formattedDate} sudah PENUH sepenuhnya. Sila pilih tarikh lain ya! 🙏✨`);
+        } else {
+          setDateAlertMsg("");
+        }
+      },
+      (err) => {
+        console.error("Gagal memeriksa status slot tempahan daripada Firestore:", err);
+        setIsCheckingDate(false);
+        setBookingAvailability(null);
+      }
+    );
+
+    return unsubscribe;
   }, [userDate]);
 
   // Run initial SDK connection check based on "firebase-integration" skill
@@ -322,6 +349,18 @@ export default function App() {
   const deliveryCharge = deliveryType === "delivery" ? selectedDistance * deliveryRatePerKm : 0;
   const grandTotal = subtotalWater + deliveryCharge;
   const totalLitres = (qty12L * 12) + (qty8L * 8);
+  const requestedBalangUnits = qty12L + qty8L;
+  const hasEnoughBalang =
+    bookingAvailability?.balangsLeft == null ||
+    bookingAvailability.balangsLeft >= requestedBalangUnits;
+  const isSelectedDateBlocked =
+    bookingAvailability?.isFull === true ||
+    (userDate !== "" && requestedBalangUnits > 0 && !hasEnoughBalang);
+  const isSubmitDisabled =
+    requestedBalangUnits === 0 ||
+    isCheckingDate ||
+    isSelectedDateBlocked ||
+    showOrderFeedback;
   
   // Approx cups served (Each Litre translates to 10 cups of 100ml)
   const approxCups = totalLitres * 10;
@@ -392,6 +431,37 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const bookingDateId = formatBookingDateId(userDate);
+    if (bookingDateId) {
+      setIsCheckingDate(true);
+      try {
+        const bookingSnap = await getDocFromServer(doc(db, "bookings", bookingDateId));
+        if (bookingSnap.exists()) {
+          const bookingData = bookingSnap.data();
+          const balangsLeft = typeof bookingData?.balangsLeft === "number" ? bookingData.balangsLeft : null;
+          const isFull = bookingData?.isFull === true;
+          if (isFull || (balangsLeft !== null && balangsLeft < requestedBalangUnits)) {
+            setDateAlertMsg(
+              balangsLeft !== null
+                ? `⚠️ Slot ${bookingDateId} tidak cukup baki balang. Baki: ${balangsLeft}, permintaan anda: ${requestedBalangUnits}.`
+                : `⚠️ Slot ${bookingDateId} sudah penuh. Sila pilih tarikh lain.`
+            );
+            setFirebaseStatus("idle");
+            setShowOrderFeedback(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Gagal mengesahkan slot sebelum submit:", error);
+        setDateAlertMsg("⚠️ Sistem gagal mengesahkan slot. Sila cuba sekali lagi sebentar lagi.");
+        setFirebaseStatus("idle");
+        setShowOrderFeedback(false);
+        return;
+      } finally {
+        setIsCheckingDate(false);
+      }
+    }
+
     setShowOrderFeedback(true);
     setFirebaseStatus("saving");
     setFirebaseErrorMsg("");
@@ -1114,6 +1184,21 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
                   </div>
                 )}
 
+                {userDate && bookingAvailability && !dateAlertMsg && hasEnoughBalang && (
+                  <div className="text-[11px] text-emerald-300 font-sans leading-relaxed p-2.5 bg-emerald-950/35 border border-emerald-500/25 rounded-xl">
+                    Slot {bookingAvailability.id} masih tersedia
+                    {bookingAvailability.balangsLeft !== null
+                      ? ` — baki ${bookingAvailability.balangsLeft} balang.`
+                      : "."}
+                  </div>
+                )}
+
+                {userDate && bookingAvailability && !bookingAvailability.isFull && !hasEnoughBalang && (
+                  <div className="text-[11px] text-amber-300 font-sans leading-relaxed p-2.5 bg-amber-950/30 border border-amber-500/25 rounded-xl">
+                    Baki balang tidak cukup untuk kuantiti dipilih. Baki: {bookingAvailability.balangsLeft}, permintaan: {requestedBalangUnits}.
+                  </div>
+                )}
+
                 {dateAlertMsg && (
                   <div className="text-[11px] text-rose-300 font-sans leading-relaxed p-2.5 bg-rose-950/40 border border-rose-500/30 rounded-xl">
                     {dateAlertMsg}
@@ -1245,7 +1330,7 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
               </div>
 
               {/* WARNING BOX IF NO ITEMS SELECTED */}
-              {qty12L === 0 && qty8L === 0 ? (
+              {requestedBalangUnits === 0 ? (
                 <div className="p-3 bg-red-950/30 border border-red-900/60 text-red-200 text-xxs rounded-xl font-medium text-center">
                   ⚠️ Amaran: Sila tambah sekurang-kurangnya 1 Balang (12L atau 8L) pada bahagian menu untuk menghantar tempahan.
                 </div>
@@ -1280,9 +1365,9 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
               {/* RESERVATION SUBMIT ACTION */}
               <button
                 type="submit"
-                disabled={qty12L === 0 && qty8L === 0}
+                disabled={isSubmitDisabled}
                 className={`w-full py-4 rounded-xl font-serif text-sm font-extrabold tracking-wider transition-all duration-300 shadow-xl flex items-center justify-center gap-2 outline-none ${
-                  qty12L === 0 && qty8L === 0
+                  isSubmitDisabled
                     ? "bg-stone-800 text-stone-500 border border-stone-900 cursor-not-allowed"
                     : "bg-gradient-to-r from-gold-600 via-gold-400 to-gold-600 text-forest-900 hover:scale-[1.02] shadow-gold-400/20 active:scale-95 cursor-pointer"
                 }`}
