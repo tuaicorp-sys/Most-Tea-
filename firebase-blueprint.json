@@ -89,85 +89,15 @@
     },
     "Booking": {
       "title": "Booking",
-      "description": "Represents a specific date block and live balang capacity status",
+      "description": "Represents a specific date block and slots capacity status",
       "type": "object",
       "properties": {
-        "date": {
-          "type": "string",
-          "description": "Calendar date key used by the deployed website, e.g. 15 JUN 2026"
-        },
-        "capacityUnits": {
-          "type": "number",
-          "description": "Maximum balang capacity for this date"
-        },
-        "totalFleetLimit": {
-          "type": "number",
-          "description": "Alias of capacityUnits for legacy dashboards"
-        },
-        "totalRequestsReceived": {
-          "type": "number",
-          "description": "Total unique order/hold records counted for this date"
-        },
-        "confirmedPaidOrders": {
-          "type": "number",
-          "description": "Number of confirmed or paid orders for this date"
-        },
-        "pendingHoldOrders": {
-          "type": "number",
-          "description": "Number of active pending website holds for this date"
-        },
-        "confirmedUnits": {
-          "type": "number",
-          "description": "Confirmed balang units already consumed"
-        },
-        "pendingHoldUnits": {
-          "type": "number",
-          "description": "Pending balang units temporarily held"
-        },
-        "usedUnits": {
-          "type": "number",
-          "description": "confirmedUnits + pendingHoldUnits"
-        },
-        "balangsLeft": {
-          "type": "number",
-          "description": "Remaining balang units available"
-        },
         "isFull": {
           "type": "boolean",
           "description": "True if the slot limits are strictly reached for this date"
-        },
-        "status": {
-          "type": "string",
-          "enum": ["AVAILABLE", "PARTIALLY_BOOKED", "FULLY_BOOKED"],
-          "description": "Human readable availability status"
-        },
-        "holdMinutes": {
-          "type": "number",
-          "description": "Minutes that pending unpaid website orders are counted as active holds"
-        },
-        "countPendingHolds": {
-          "type": "boolean",
-          "description": "Whether pending website orders count against capacity"
-        },
-        "managedBy": {
-          "type": "string",
-          "description": "Sync service marker"
-        },
-        "sourceCount": {
-          "type": "number",
-          "description": "Number of unique source records counted"
-        },
-        "lastUpdated": {
-          "type": "string",
-          "format": "date-time",
-          "description": "When the booking capacity document was last recalculated"
         }
       },
       "required": [
-        "date",
-        "capacityUnits",
-        "usedUnits",
-        "balangsLeft",
         "isFull"
       ]
     }
