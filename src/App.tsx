@@ -108,6 +108,13 @@ export default function App() {
     async function checkDateAvailability() {
       setIsCheckingDate(true);
       setDateAlertMsg("");
+
+      // Hide previous block alert when user explicitly selects a new date
+      const alertBox = document.getElementById("crimson-rose-alert");
+      if (alertBox) {
+        alertBox.style.display = "none";
+      }
+
       try {
         const parts = userDate.split("-");
         if (parts.length !== 3) return;
@@ -130,15 +137,30 @@ export default function App() {
 
         if (docSnap.exists()) {
           const bookingData = docSnap.data();
-          if (bookingData && bookingData.isFull === true) {
+          const isBlocked = bookingData && bookingData.isFull === true;
+          
+          if (bookingData && (bookingData.isFull || isBlocked)) {
+            // 1. Cari elemen Kotak Crimson Rose yang kita letak di HTML tadi
+            const alertBox = document.getElementById("crimson-rose-alert");
+            const alertText = document.getElementById("crimson-rose-text");
+            
+            if (alertBox && alertText) {
+                // 2. Masukkan mesej amaran secara dinamik
+                alertText.innerText = `⚠️ Maaf! Slot tempahan Teh Tarik Balang untuk tarikh ${formattedDate} sudah PENUH sepenuhnya. Sila pilih tarikh lain ya! 🙏✨`;
+                
+                // 3. Tukar status daripada tersembunyi (none) kepada papar (block)
+                alertBox.style.display = "block";
+                
+                // 4. Skrol skrin ke arah kotak amaran secara automatik supaya user nampak
+                alertBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
             const warningText = `⚠️ Maaf! Slot tempahan Teh Tarik Balang untuk tarikh ${formattedDate} sudah PENUH sepenuhnya. Sila pilih tarikh lain ya! 🙏✨`;
             setDateAlertMsg(warningText);
-            
-            // Show standard fallback alert
-            alert(warningText);
 
             // Instantly reset the date input selection to blank so they cannot submit
             setUserDate("");
+            return false; // Sekat proses tempahan seterusnya
           }
         }
       } catch (err) {
@@ -234,8 +256,8 @@ export default function App() {
     };
   };
 
-  const handleCalculateOSM = async (addressOverride?: string) => {
-    const targetAddress = addressOverride !== undefined ? addressOverride : userAddress;
+  const handleCalculateOSM = async (addressOverride?: string | unknown) => {
+    const targetAddress = (addressOverride && typeof addressOverride === "string") ? addressOverride : userAddress;
     if (!targetAddress || targetAddress.trim() === "") {
       setCalcError("Sila masukkan alamat lengkap terlebih dahulu.");
       return;
@@ -1120,6 +1142,15 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
                   </div>
                 )}
 
+                {/* Crimson Rose Blocker Alert Box */}
+                <div
+                  id="crimson-rose-alert"
+                  style={{ display: "none" }}
+                  className="p-3 bg-rose-950/60 border border-rose-500/50 text-rose-200 text-xs rounded-xl font-sans text-center mt-2"
+                >
+                  <p id="crimson-rose-text" className="font-semibold leading-relaxed"></p>
+                </div>
+
                 {/* Delivery Address (Shown conditionally for Delivery) */}
                 {deliveryType === "delivery" && (
                   <div className="space-y-2">
@@ -1144,7 +1175,7 @@ Sila maklumkan sekiranya tarikh dan masa ini available untuk slot saya. Terima k
                     {/* OSM calculation button */}
                     <button
                       type="button"
-                      onClick={handleCalculateOSM}
+                      onClick={() => handleCalculateOSM()}
                       disabled={isCalculating}
                       className="w-full py-2 px-3 bg-gradient-to-r from-gold-600 to-gold-400 hover:from-gold-500 hover:to-gold-300 disabled:from-stone-700 disabled:to-stone-800 disabled:text-stone-500 text-forest-900 text-[10px] font-bold uppercase tracking-wider rounded-lg transition duration-200 cursor-pointer flex items-center justify-center gap-1.5 focus:outline-none focus:ring-1 focus:ring-gold-400"
                     >
