@@ -368,7 +368,7 @@ Berikut adalah butiran majlis dan tempahan saya:
 📌 *Butiran Pelanggan:*
 • *Nama:* ${userName || "*(Sila isi nama saya)*"}
 • *Tarikh Majlis:* ${formattedDate}
-• *Masa Majlis:* ${userTime || "*(Sila isi masa)*"}
+• *Masa:* ${userTime || "*(Sila isi masa)*"}
 • *Kaedah:* ${deliveryType === "delivery" ? "Penghantaran (Delivery)" : "Ambil Sendiri (Self-Pickup)"}
 • *Alamat:* ${deliveryType === "delivery" ? (userAddress || "*(Sila isi alamat lengkap)*") : "Sg Penchala (Self-Pickup)"}
 
